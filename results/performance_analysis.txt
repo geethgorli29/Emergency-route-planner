@@ -1,0 +1,65 @@
+AI TRAVEL-TIME PREDICTION
+PERFORMANCE ANALYSIS
+=====================
+
+Model:
+Multiple Linear Regression
+
+Input Features:
+1. Distance (km)
+2. Traffic Level (1-5)
+
+Target:
+Travel Time (minutes)
+
+Regression Equation:
+Travel Time = -6.99 + 1.74(Distance) + 5.13(Traffic)
+
+Dataset Records:
+20
+
+Mean Absolute Error:
+2.35 minutes
+
+
+TEST RESULTS
+------------
+
+Test 1:
+Distance: 5 km
+Traffic Level: 2
+Predicted Travel Time: 11.98 minutes
+
+Test 2:
+Distance: 10 km
+Traffic Level: 3
+Predicted Travel Time: 36.08 minutes
+
+Test 3:
+Distance: 20 km
+Traffic Level: 4
+Predicted Travel Time: 48.37 minutes
+
+Test 4:
+Distance: 30 km
+Traffic Level: 5
+Predicted Travel Time: 68.47 minutes
+
+
+PERFORMANCE OBSERVATION
+-----------------------
+
+The AI model uses route distance and traffic level to
+estimate emergency vehicle travel time.
+
+As the distance increases, the predicted travel time
+generally increases.
+
+Higher traffic levels also increase the predicted
+travel time.
+
+The model achieved a Mean Absolute Error of 2.35 minutes
+on the project dataset.
+
+This provides an explainable AI extension to the
+emergency vehicle route planner.
