@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
+#include "ai_prediction.h"
 
 #define MAX_DATA 100
+#define MIN_TRAFFIC 1
+#define MAX_TRAFFIC 3
+#define EPSILON 1e-12
 
 typedef struct
 {
@@ -10,433 +15,245 @@ typedef struct
     double travelTime;
 } Data;
 
+static double b0 = 0.0;
+static double b1 = 0.0;
+static double b2 = 0.0;
+static int modelReady = 0;
 
-/* --------------------------------------------------
-   PREDICTION FUNCTION
-   Travel Time = b0 + b1(Distance) + b2(Traffic)
-   -------------------------------------------------- */
-double predict(double distance,
-               double traffic,
-               double b0,
-               double b1,
-               double b2)
+static double predict(double distance, double traffic)
 {
     return b0 + b1 * distance + b2 * traffic;
 }
 
-
-/* --------------------------------------------------
-   TRAIN MULTIPLE LINEAR REGRESSION MODEL
-   Uses Gaussian Elimination
-   -------------------------------------------------- */
-int trainModel(Data data[],
-               int n,
-               double *b0,
-               double *b1,
-               double *b2)
+static int trainModel(Data data[], int n)
 {
-    double sx1 = 0;
-    double sx2 = 0;
-    double sy = 0;
+    double meanX1 = 0.0, meanX2 = 0.0, meanY = 0.0;
+    double s11 = 0.0, s22 = 0.0, s12 = 0.0;
+    double s1y = 0.0, s2y = 0.0;
+    double determinant;
+    int i;
 
-    double sx1x1 = 0;
-    double sx2x2 = 0;
-    double sx1x2 = 0;
+    if (n < 3)
+        return 0;
 
-    double sx1y = 0;
-    double sx2y = 0;
-
-    int i, j, k;
-
-    /* Calculate required sums */
+    /* Calculate feature and target means. */
     for (i = 0; i < n; i++)
     {
-        double x1 = data[i].distance;
-        double x2 = data[i].traffic;
-        double y = data[i].travelTime;
-
-        sx1 += x1;
-        sx2 += x2;
-        sy += y;
-
-        sx1x1 += x1 * x1;
-        sx2x2 += x2 * x2;
-        sx1x2 += x1 * x2;
-
-        sx1y += x1 * y;
-        sx2y += x2 * y;
+        meanX1 += data[i].distance;
+        meanX2 += data[i].traffic;
+        meanY += data[i].travelTime;
     }
 
+    meanX1 /= n;
+    meanX2 /= n;
+    meanY /= n;
 
     /*
-       Normal equations:
-
-       [ n      sx1      sx2   ] [b0]   [sy]
-       [ sx1    sx1x1    sx1x2 ] [b1] = [sx1y]
-       [ sx2    sx1x2    sx2x2 ] [b2]   [sx2y]
+       Center the variables before solving the normal equations.
+       This avoids numerical instability caused by the different
+       scales of distance and traffic.
     */
-
-    double A[3][4] =
+    for (i = 0; i < n; i++)
     {
-        {n,   sx1,   sx2,   sy},
-        {sx1, sx1x1, sx1x2, sx1y},
-        {sx2, sx1x2, sx2x2, sx2y}
-    };
+        double x1 = data[i].distance - meanX1;
+        double x2 = data[i].traffic - meanX2;
+        double y = data[i].travelTime - meanY;
 
-
-    /* Gaussian Elimination */
-
-    for (i = 0; i < 3; i++)
-    {
-        double pivot = A[i][i];
-
-        if (pivot == 0)
-        {
-            return 0;
-        }
-
-        /* Normalize pivot row */
-        for (j = i; j < 4; j++)
-        {
-            A[i][j] = A[i][j] / pivot;
-        }
-
-        /* Eliminate other rows */
-        for (k = 0; k < 3; k++)
-        {
-            if (k != i)
-            {
-                double factor = A[k][i];
-
-                for (j = i; j < 4; j++)
-                {
-                    A[k][j] =
-                        A[k][j] - factor * A[i][j];
-                }
-            }
-        }
+        s11 += x1 * x1;
+        s22 += x2 * x2;
+        s12 += x1 * x2;
+        s1y += x1 * y;
+        s2y += x2 * y;
     }
 
+    /*
+       Centered normal equations:
 
-    /* Regression coefficients */
+       [s11  s12] [b1] = [s1y]
+       [s12  s22] [b2]   [s2y]
+    */
+    determinant = s11 * s22 - s12 * s12;
 
-    *b0 = A[0][3];
-    *b1 = A[1][3];
-    *b2 = A[2][3];
+    if (fabs(determinant) < EPSILON)
+        return 0;
 
+    b1 = (s1y * s22 - s2y * s12) / determinant;
+    b2 = (s2y * s11 - s1y * s12) / determinant;
+    b0 = meanY - b1 * meanX1 - b2 * meanX2;
+
+    modelReady = 1;
     return 1;
 }
 
-
-/* --------------------------------------------------
-   CALCULATE MEAN ABSOLUTE ERROR
-   -------------------------------------------------- */
-double calculateMAE(Data data[],
-                    int n,
-                    double b0,
-                    double b1,
-                    double b2)
+static double calculateMAE(Data data[], int n)
 {
-    double totalError = 0;
+    double totalError = 0.0;
+    int i;
 
-    for (int i = 0; i < n; i++)
+    if (n <= 0)
+        return -1.0;
+
+    for (i = 0; i < n; i++)
     {
-        double predicted =
-            predict(data[i].distance,
-                    data[i].traffic,
-                    b0,
-                    b1,
-                    b2);
+        double error = data[i].travelTime -
+                       predict(data[i].distance, data[i].traffic);
 
-        double error =
-            data[i].travelTime - predicted;
-
-        if (error < 0)
-        {
-            error = -error;
-        }
-
-        totalError += error;
+        totalError += fabs(error);
     }
 
     return totalError / n;
 }
 
-
-/* --------------------------------------------------
-   MAIN FUNCTION
-   -------------------------------------------------- */
-int main()
+int initializeAI(void)
 {
     Data data[MAX_DATA];
-
     int n = 0;
+    int i;
+    FILE *file = fopen("data/travel_data.csv", "r");
 
-    double b0;
-    double b1;
-    double b2;
-
-    double mae;
-
-    double distance;
-    int traffic;
-
-    double predicted;
-
-
-    /* --------------------------------------------------
-       OPEN DATASET
-       -------------------------------------------------- */
-
-    FILE *file =
-        fopen("data/travel_data.csv", "r");
+    modelReady = 0;
 
     if (file == NULL)
     {
-        printf("\nError: Could not open dataset.\n");
-        printf("Check that this file exists:\n");
-        printf("data/travel_data.csv\n");
-
-        return 1;
+        printf("\nAI Error: Could not open dataset.\n");
+        printf("Required file: data/travel_data.csv\n");
+        return 0;
     }
 
-
-    /* Skip CSV header */
-
     char header[200];
-
-    fgets(header, sizeof(header), file);
-
-
-    /* Read dataset */
-
-    while (n < MAX_DATA &&
-           fscanf(file,
-                  "%lf,%lf,%lf",
-                  &data[n].distance,
-                  &data[n].traffic,
-                  &data[n].travelTime) == 3)
+    if (fgets(header, sizeof(header), file) == NULL)
     {
+        fclose(file);
+        printf("\nAI Error: Dataset header could not be read.\n");
+        return 0;
+    }
+
+    while (n < MAX_DATA)
+    {
+        double distance, traffic, travelTime;
+        int result = fscanf(file, "%lf,%lf,%lf",
+                            &distance, &traffic, &travelTime);
+
+        if (result == EOF)
+            break;
+
+        if (result != 3)
+        {
+            fclose(file);
+            printf("\nAI Error: Invalid training data.\n");
+            return 0;
+        }
+
+        if (distance <= 0 || traffic < MIN_TRAFFIC ||
+            traffic > MAX_TRAFFIC || travelTime <= 0)
+        {
+            fclose(file);
+            printf("\nAI Error: Invalid values in training data.\n");
+            return 0;
+        }
+
+        data[n].distance = distance;
+        data[n].traffic = traffic;
+        data[n].travelTime = travelTime;
         n++;
     }
 
     fclose(file);
 
-
-    /* Check dataset */
-
-    if (n == 0)
+    if (n <= 0)
     {
-        printf("\nError: Dataset is empty.\n");
-
-        return 1;
+        printf("\nAI Error: Dataset is empty.\n");
+        return 0;
     }
 
-
-    /* --------------------------------------------------
-       TRAIN MODEL
-       -------------------------------------------------- */
-
-    if (!trainModel(data,
-                    n,
-                    &b0,
-                    &b1,
-                    &b2))
+    if (!trainModel(data, n))
     {
-        printf("\nError: Model training failed.\n");
-
-        return 1;
+        printf("\nAI Error: Model training failed.\n");
+        return 0;
     }
 
+    double mae = calculateMAE(data, n);
 
-    /* --------------------------------------------------
-       CALCULATE MAE
-       -------------------------------------------------- */
-
-    mae =
-        calculateMAE(data,
-                     n,
-                     b0,
-                     b1,
-                     b2);
-
-
-    /* --------------------------------------------------
-       DISPLAY MODEL INFORMATION
-       -------------------------------------------------- */
-
-    printf("\n");
+    printf("\n========================================\n");
+    printf("       AI TRAVEL-TIME MODULE\n");
     printf("========================================\n");
-    printf("     AI TRAVEL-TIME PREDICTION\n");
-    printf("========================================\n");
-
-    printf("\nDataset Records : %d\n", n);
-
+    printf("Dataset Records : %d\n", n);
     printf("\nRegression Equation:\n");
-
     printf("Travel Time = %.2f + %.2f(Distance) + %.2f(Traffic)\n",
-           b0,
-           b1,
-           b2);
+           b0, b1, b2);
+    printf("\nMean Absolute Error: %.2f minutes\n", mae);
+    printf("AI Model Status: Ready\n");
+    printf("========================================\n");
 
-    printf("\nMean Absolute Error: %.2f minutes\n",
-           mae);
+    FILE *resultFile = fopen("results/prediction_results.txt", "w");
 
-
-    /* --------------------------------------------------
-       CREATE RESULTS FILE
-       -------------------------------------------------- */
-
-    FILE *resultFile =
-        fopen("results/prediction_results.txt", "w");
-
-    if (resultFile == NULL)
+    if (resultFile != NULL)
     {
-        printf("\nError: Could not create results file.\n");
+        fprintf(resultFile, "AI TRAVEL-TIME PREDICTION RESULTS\n");
+        fprintf(resultFile, "=================================\n\n");
+        fprintf(resultFile, "Dataset Records: %d\n\n", n);
+        fprintf(resultFile, "Regression Equation:\n");
+        fprintf(resultFile,
+                "Travel Time = %.2f + %.2f(Distance) + %.2f(Traffic)\n\n",
+                b0, b1, b2);
+        fprintf(resultFile, "Mean Absolute Error: %.2f minutes\n\n", mae);
+        fprintf(resultFile, "ACTUAL VS PREDICTED RESULTS\n");
+        fprintf(resultFile, "------------------------------------------------------------\n");
+        fprintf(resultFile, "Distance\tTraffic\tActual\tPredicted\tError\n");
+        fprintf(resultFile, "------------------------------------------------------------\n");
 
-        return 1;
-    }
-
-
-    /* Write model information */
-
-    fprintf(resultFile,
-            "AI TRAVEL-TIME PREDICTION RESULTS\n");
-
-    fprintf(resultFile,
-            "=================================\n\n");
-
-    fprintf(resultFile,
-            "Dataset Records: %d\n\n",
-            n);
-
-    fprintf(resultFile,
-            "Regression Equation:\n");
-
-    fprintf(resultFile,
-            "Travel Time = %.2f + %.2f(Distance) + %.2f(Traffic)\n\n",
-            b0,
-            b1,
-            b2);
-
-    fprintf(resultFile,
-            "Mean Absolute Error: %.2f minutes\n\n",
-            mae);
-
-
-    /* --------------------------------------------------
-       WRITE ACTUAL VS PREDICTED RESULTS
-       -------------------------------------------------- */
-
-    fprintf(resultFile,
-            "ACTUAL VS PREDICTED RESULTS\n");
-
-    fprintf(resultFile,
-            "------------------------------------------------------------\n");
-
-    fprintf(resultFile,
-            "Distance\tTraffic\tActual\tPredicted\tError\n");
-
-    fprintf(resultFile,
-            "------------------------------------------------------------\n");
-
-
-    for (int i = 0; i < n; i++)
-    {
-        double predictedValue =
-            predict(data[i].distance,
-                    data[i].traffic,
-                    b0,
-                    b1,
-                    b2);
-
-        double error =
-            data[i].travelTime - predictedValue;
-
-        if (error < 0)
+        for (i = 0; i < n; i++)
         {
-            error = -error;
+            double predictedValue = predict(data[i].distance,
+                                            data[i].traffic);
+            double error = fabs(data[i].travelTime - predictedValue);
+
+            fprintf(resultFile, "%.2f\t\t%.0f\t\t%.2f\t%.2f\t\t%.2f\n",
+                    data[i].distance, data[i].traffic,
+                    data[i].travelTime, predictedValue, error);
         }
 
-        fprintf(resultFile,
-                "%.2f\t\t%.0f\t\t%.2f\t%.2f\t\t%.2f\n",
-                data[i].distance,
-                data[i].traffic,
-                data[i].travelTime,
-                predictedValue,
-                error);
+        fclose(resultFile);
     }
 
+    return 1;
+}
 
-    fclose(resultFile);
-
-
-    /* --------------------------------------------------
-       USER INPUT FOR NEW PREDICTION
-       -------------------------------------------------- */
-
-    printf("\n----------------------------------------\n");
-
-    printf("Enter route distance (km): ");
-    scanf("%lf", &distance);
-
-    printf("Enter traffic level (1-5): ");
-    scanf("%d", &traffic);
-
-
-    /* Validate distance */
+double predictTravelTime(double distance, int traffic)
+{
+    if (!modelReady)
+    {
+        printf("\nAI Error: Model is not initialized.\n");
+        return -1.0;
+    }
 
     if (distance <= 0)
     {
-        printf("\nInvalid distance.\n");
-
-        return 1;
+        printf("\nAI Error: Invalid route distance.\n");
+        return -1.0;
     }
 
-
-    /* Validate traffic */
-
-    if (traffic < 1 || traffic > 5)
+    if (traffic < MIN_TRAFFIC || traffic > MAX_TRAFFIC)
     {
-        printf("\nInvalid traffic level.\n");
-        printf("Traffic level must be between 1 and 5.\n");
-
-        return 1;
+        printf("\nAI Error: Traffic level must be between 1 and 3.\n");
+        return -1.0;
     }
 
+    return predict(distance, (double)traffic);
+}
 
-    /* Predict travel time */
+void displayAIPrediction(double distance, int traffic)
+{
+    double predicted = predictTravelTime(distance, traffic);
 
-    predicted =
-        predict(distance,
-                traffic,
-                b0,
-                b1,
-                b2);
-
-
-    /* --------------------------------------------------
-       DISPLAY FINAL PREDICTION
-       -------------------------------------------------- */
+    if (predicted < 0)
+        return;
 
     printf("\n========================================\n");
-    printf("          PREDICTION RESULT\n");
+    printf("       AI TRAVEL-TIME PREDICTION\n");
     printf("========================================\n");
-
-    printf("Route Distance        : %.2f km\n",
-           distance);
-
-    printf("Traffic Level         : %d\n",
-           traffic);
-
-    printf("Predicted Travel Time : %.2f minutes\n",
-           predicted);
-
+    printf("Route Distance        : %.2f km\n", distance);
+    printf("Traffic Level         : %d\n", traffic);
+    printf("Predicted Travel Time : %.2f minutes\n", predicted);
     printf("========================================\n");
-
-    printf("\nResults saved to:\n");
-    printf("results/prediction_results.txt\n");
-
-
-    return 0;
 }

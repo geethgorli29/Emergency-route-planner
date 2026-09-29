@@ -7,19 +7,24 @@ Multiple Linear Regression
 
 Input Features:
 1. Distance (km)
-2. Traffic Level (1-5)
+2. Traffic Level (1-3)
+
+Traffic Levels:
+1 = Low
+2 = Medium
+3 = High
 
 Target:
 Travel Time (minutes)
 
 Regression Equation:
-Travel Time = -6.99 + 1.74(Distance) + 5.13(Traffic)
+Travel Time = -10.30 + 1.80(Distance) + 7.41(Traffic)
 
 Dataset Records:
 20
 
 Mean Absolute Error:
-2.35 minutes
+4.08 minutes
 
 
 TEST RESULTS
@@ -28,22 +33,22 @@ TEST RESULTS
 Test 1:
 Distance: 5 km
 Traffic Level: 2
-Predicted Travel Time: 11.98 minutes
+Predicted Travel Time: 13.52 minutes
 
 Test 2:
 Distance: 10 km
 Traffic Level: 3
-Predicted Travel Time: 36.08 minutes
+Predicted Travel Time: 29.94 minutes
 
 Test 3:
 Distance: 20 km
-Traffic Level: 4
-Predicted Travel Time: 48.37 minutes
+Traffic Level: 3
+Predicted Travel Time: 47.97 minutes
 
 Test 4:
 Distance: 30 km
-Traffic Level: 5
-Predicted Travel Time: 68.47 minutes
+Traffic Level: 3
+Predicted Travel Time: 65.99 minutes
 
 
 PERFORMANCE OBSERVATION
@@ -58,8 +63,9 @@ generally increases.
 Higher traffic levels also increase the predicted
 travel time.
 
-The model achieved a Mean Absolute Error of 2.35 minutes
-on the project dataset.
+The model achieved a Mean Absolute Error of 4.08 minutes
+on the modified project dataset.
 
-This provides an explainable AI extension to the
-emergency vehicle route planner.
+The model uses multiple linear regression to provide
+an explainable AI extension to the emergency vehicle
+route planner.
