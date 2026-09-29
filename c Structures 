@@ -1,0 +1,47 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#define MAX_VEHICLES 100
+#define MAX_LOCATIONS 100
+#define MAX_REQUESTS 100
+#define MAX_NAME 50
+#define MAX_TYPE 20
+// 1. Vehicle structure
+Typedef struct {
+    Int vehicleId;
+    Char vehicleType[MAX_TYPE];
+    Int status;
+    Int currentLocation;
+} Vehicle;
+// 2. Location structure
+Typedef struct {
+    Int locationId;
+    Char name[MAX_NAME];
+    Char type[MAX_TYPE];
+} Location;
+// 3. Road structure
+Typedef struct {
+    Int destination;
+    Int distance;
+    Int trafficWeight;
+} Road;
+// 4. Emergency Request structure
+Typedef struct {
+    Int requestId;
+    Int vehicleId;
+    Int source;
+    Int destination;
+    Int priority;
+} EmergencyRequest;
+// 5. Graph Node structure
+Typedef struct Node {
+    Int destination;
+    Int distance;
+    Int trafficWeight;
+    Struct Node *next;
+} Node;
+// 6. Graph structure
+Typedef struct {
+    Int vertices;
+    Node *adjList[MAX_LOCATIONS];
+} Graph;
