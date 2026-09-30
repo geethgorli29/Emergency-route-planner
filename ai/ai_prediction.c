@@ -254,6 +254,29 @@ void displayAIPrediction(double distance, int traffic)
     printf("       AI TRAVEL-TIME PREDICTION\n");
     printf("========================================\n");
     printf("Route Distance        : %.2f km\n", distance);
-    printf("Traffic Level         : %d (%s)\n", traffic, traffic == 1 ? "Low" : traffic == 2 ? "Medium" : "High");    printf("Predicted Travel Time : %.2f minutes\n", predicted);
+    if (traffic == 1)
+    printf("Traffic Level         : 1 (Low)\n");
+    else if (traffic == 2)
+    printf("Traffic Level         : 2 (Medium)\n");
+    else
+    printf("Traffic Level         : 3 (High)\n");
+    printf("Predicted Travel Time : %.2f minutes\n", predicted);
     printf("========================================\n");
+}
+int main()
+{
+    double distance;
+    int traffic;
+
+    initializeAI();
+
+    printf("\nEnter route distance (km): ");
+    scanf("%lf", &distance);
+
+    printf("Enter traffic level (1=Low, 2=Medium, 3=High): ");
+    scanf("%d", &traffic);
+
+    displayAIPrediction(distance, traffic);
+
+    return 0;
 }
