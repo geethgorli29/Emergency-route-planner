@@ -22,9 +22,10 @@ static int modelReady = 0;
 
 static double predict(double distance, double traffic)
 {
-    return b0 + b1 * distance + b2 * traffic;
+    return round(b0 * 100.0) / 100.0 +
+           (round(b1 * 100.0) / 100.0) * distance +
+           (round(b2 * 100.0) / 100.0) * traffic;
 }
-
 static int trainModel(Data data[], int n)
 {
     double meanX1 = 0.0, meanX2 = 0.0, meanY = 0.0;
@@ -253,7 +254,6 @@ void displayAIPrediction(double distance, int traffic)
     printf("       AI TRAVEL-TIME PREDICTION\n");
     printf("========================================\n");
     printf("Route Distance        : %.2f km\n", distance);
-    printf("Traffic Level         : %d\n", traffic);
-    printf("Predicted Travel Time : %.2f minutes\n", predicted);
+    printf("Traffic Level         : %d (%s)\n", traffic, traffic == 1 ? "Low" : traffic == 2 ? "Medium" : "High");    printf("Predicted Travel Time : %.2f minutes\n", predicted);
     printf("========================================\n");
 }
